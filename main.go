@@ -121,8 +121,8 @@ type Peer struct {
 // }
 
 func DecideToAccessFile() bool {
-	randomNumber := GenerateRandomNumber(1,3)
-	if randomNumber == 1 {
+	// randomNumber := GenerateRandomNumber(1,3)
+	if 1 == 1 {
 		return true
 	}
 	return false
@@ -130,7 +130,7 @@ func DecideToAccessFile() bool {
 
 func (p *Peer) RequestAccess() {
 	p.state = WANTED
-	request := &ping.Request{ProcessId: p.id}
+	request := &ping.Request{ProcessId: p.id, LamportTime: int32(p.lamportTime)}
 	replies := 1
 	for id, client := range p.clients {
 		fmt.Printf("Request acces from %v (lamport: %v)\n", id, p.lamportTime)
@@ -152,7 +152,8 @@ func (p *Peer) RequestAccess() {
 }
 
 func (p *Peer) RequestAccessToFile(ctx context.Context, req *ping.Request) (*ping.Reply, error) {
-	if(p.state == HELD || (p.state == WANTED && (p.lamportTime < int(req.LamportTime) || p.id > req.ProcessId))) {
+	fmt.Printf("%v p.lamport: %v, %v req.lamport: %v\n", p.id, p.lamportTime, req.ProcessId, req.LamportTime)
+	if(p.state == HELD || (p.state == WANTED && p.CompareRequest(req))) {
 		p.replyQueue = append(p.replyQueue, int(req.ProcessId))
 		for p.state == HELD {}
 	}
@@ -162,6 +163,15 @@ func (p *Peer) RequestAccessToFile(ctx context.Context, req *ping.Request) (*pin
 		LamportTime: int32(p.lamportTime),
 	}
 	return rep, nil		
+}
+
+func (p *Peer) CompareRequest(req *ping.Request) bool {
+	if(p.lamportTime < int(req.LamportTime)) {
+		return true
+	} else if(p.lamportTime == int(req.LamportTime) && p.id > req.ProcessId) {
+		return true
+	}
+	return false 
 }
 
 func (p *Peer) OnLamportRecieved(newT int) {
