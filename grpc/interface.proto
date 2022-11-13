@@ -1,17 +1,21 @@
 syntax = "proto3";
 
 package ping;
-option go_package = "https://github.com/NaddiNadja/peer-to-peer;ping";
+option go_package = ".";
 
 
 service Ping {
-    rpc ping (Request) returns (Reply) {}
+    rpc RequestAccessToFile (Request) returns (Reply) {}
 }
 
 message Request {
-    int32 id = 1;
+    int32 processId = 1;
+    int32 lamportTime = 2;
 }
 
 message Reply {
-    int32 amount = 1;
+    int32 processId = 1;
+    int32 lamportTime = 2;
 }
+
+// protoc --go_out=./grpc --go-grpc_out=require_unimplemented_servers=false:./grpc/  grpc/interface.proto
