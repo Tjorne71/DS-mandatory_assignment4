@@ -1,14 +1,11 @@
 syntax = "proto3";
 
 package ping;
-option go_package = ".";
+option go_package = "https://github.com/NaddiNadja/peer-to-peer;ping";
 
 
 service Ping {
     rpc ping (Request) returns (Reply) {}
-    rpc Promise(PromiseRequest) returns (PromiseResponce) {}
-    rpc Commit(CommitRequest) returns (CommitResponse) {}
-    rpc Lock(LockRelease) returns (LockResponse) {}
 }
 
 message Request {
@@ -18,34 +15,3 @@ message Request {
 message Reply {
     int32 amount = 1;
 }
-
-message PromiseRequest {
-    int32 timestamp = 1;
-    int32 id = 2;
-}
-
-message PromiseResponce {
-    int32 promiseID = 1;
-    int32 timestamp = 2;
-}
-
-message CommitRequest {
-    int32 timestamp = 1;
-    int32 id = 2;
-}
-
-message CommitResponse {
-    int32 timestamp = 1;
-    int32 id = 2;
-}
-
-message LockRelease {
-    int32 timestamp = 1;
-    int32 id = 2;
-}
-
-message LockResponse {
-    int32 timestamp = 1;
-}
-
-// protoc --go_out=./grpc --go-grpc_out=require_unimplemented_servers=false:./grpc/  grpc/interface.proto
