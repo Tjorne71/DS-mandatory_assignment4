@@ -68,13 +68,15 @@ func main() {
 		c := ping.NewPingClient(conn)
 		p.clients[port] = c
 	}
-
+	//Inserted Wait time, to ensure connection before moving on
 	time.Sleep(time.Second * 2)
 
 	for true {
 		if DecideToAccessFile() {
 			fmt.Printf("I want to access the file: %v (lamport: %v)\n", ownPort, p.lamportTime)
 			p.RequestAcces()
+
+			// Ensures Wait until p.state is released or held
 			for p.state == WANTED {
 
 			}
@@ -118,7 +120,7 @@ func (p *Peer) RequestAcces() {
 	p.LamportTick()
 	request := &ping.RequestMsg{ProcessId: p.id, LamportTime: int32(p.lamportTime)}
 	for id, client := range p.clients {
-		fmt.Printf("Sending Request Message To %v\n", id)
+		fmt.Printf("Sending Request Message To %v (lamport: %v\n", id, p.lamportTime)
 		_, err := client.Request(p.ctx, request)
 		if err != nil {
 			fmt.Println("something went wrong")
@@ -127,14 +129,14 @@ func (p *Peer) RequestAcces() {
 }
 
 func (p *Peer) Request(ctx context.Context, req *ping.RequestMsg) (*ping.RequestRecievedMsg, error) {
-	fmt.Printf("Recieved Request Message from %v\n", req.ProcessId)
+	fmt.Printf("Recieved Request Message from %v (lamport: %v)\n", req.ProcessId, p.lamportTime)
 	if(p.state == HELD || (p.state == WANTED && p.CompareRequest(req))) {
-		fmt.Printf("Waited with responing to request from %v\n", req.ProcessId)
 		p.OnLamportRecieved(int(req.LamportTime))
+		fmt.Printf("Waited with responing to request from %v (lamport: %v)\n", req.ProcessId, p.lamportTime)
 		p.replyQueue = append(p.replyQueue, req.ProcessId)
 	} else {
-		fmt.Printf("Responed to request Message from %v\n", req.ProcessId)
 		p.OnLamportRecieved(int(req.LamportTime))
+		fmt.Printf("Responed to request Message from %v (lamport: %v))\n", req.ProcessId, p.lamportTime)
 		reply := &ping.ReplyMsg{ProcessId: p.id, LamportTime: int32(p.lamportTime)}
 		p.clients[req.ProcessId].Reply(ctx, reply)
 	}
