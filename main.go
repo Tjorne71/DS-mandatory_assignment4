@@ -16,6 +16,7 @@ import (
 )
 
 const initialPort = 9000
+const nrOfClients = 3
 
 
 func main() {
@@ -50,7 +51,7 @@ func main() {
 		}
 	}()
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < nrOfClients; i++ {
 		port := int32(initialPort) + int32(i)
 
 		if port == ownPort {
@@ -108,8 +109,8 @@ type Peer struct {
 }
 
 func DecideToAccessFile() bool {
-	randomNumber := GenerateRandomNumber(1,3)
-	if randomNumber == 1 {
+	randomNumber := GenerateRandomNumber(1,4)
+	if randomNumber == 1 || randomNumber == 2 || randomNumber == 3{
 		return true
 	}
 	return false
