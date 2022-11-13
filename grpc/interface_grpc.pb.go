@@ -22,7 +22,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type PingClient interface {
-	RequestAccessToFile(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Reply, error)
+	Request(ctx context.Context, in *RequestMsg, opts ...grpc.CallOption) (*RequestRecievedMsg, error)
+	Reply(ctx context.Context, in *ReplyMsg, opts ...grpc.CallOption) (*ReplyRecievedMsg, error)
 }
 
 type pingClient struct {
@@ -33,9 +34,18 @@ func NewPingClient(cc grpc.ClientConnInterface) PingClient {
 	return &pingClient{cc}
 }
 
-func (c *pingClient) RequestAccessToFile(ctx context.Context, in *Request, opts ...grpc.CallOption) (*Reply, error) {
-	out := new(Reply)
-	err := c.cc.Invoke(ctx, "/ping.Ping/RequestAccessToFile", in, out, opts...)
+func (c *pingClient) Request(ctx context.Context, in *RequestMsg, opts ...grpc.CallOption) (*RequestRecievedMsg, error) {
+	out := new(RequestRecievedMsg)
+	err := c.cc.Invoke(ctx, "/ping.Ping/Request", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *pingClient) Reply(ctx context.Context, in *ReplyMsg, opts ...grpc.CallOption) (*ReplyRecievedMsg, error) {
+	out := new(ReplyRecievedMsg)
+	err := c.cc.Invoke(ctx, "/ping.Ping/Reply", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -46,15 +56,19 @@ func (c *pingClient) RequestAccessToFile(ctx context.Context, in *Request, opts 
 // All implementations should embed UnimplementedPingServer
 // for forward compatibility
 type PingServer interface {
-	RequestAccessToFile(context.Context, *Request) (*Reply, error)
+	Request(context.Context, *RequestMsg) (*RequestRecievedMsg, error)
+	Reply(context.Context, *ReplyMsg) (*ReplyRecievedMsg, error)
 }
 
 // UnimplementedPingServer should be embedded to have forward compatible implementations.
 type UnimplementedPingServer struct {
 }
 
-func (UnimplementedPingServer) RequestAccessToFile(context.Context, *Request) (*Reply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RequestAccessToFile not implemented")
+func (UnimplementedPingServer) Request(context.Context, *RequestMsg) (*RequestRecievedMsg, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Request not implemented")
+}
+func (UnimplementedPingServer) Reply(context.Context, *ReplyMsg) (*ReplyRecievedMsg, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Reply not implemented")
 }
 
 // UnsafePingServer may be embedded to opt out of forward compatibility for this service.
@@ -68,20 +82,38 @@ func RegisterPingServer(s grpc.ServiceRegistrar, srv PingServer) {
 	s.RegisterService(&Ping_ServiceDesc, srv)
 }
 
-func _Ping_RequestAccessToFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Request)
+func _Ping_Request_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RequestMsg)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(PingServer).RequestAccessToFile(ctx, in)
+		return srv.(PingServer).Request(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/ping.Ping/RequestAccessToFile",
+		FullMethod: "/ping.Ping/Request",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PingServer).RequestAccessToFile(ctx, req.(*Request))
+		return srv.(PingServer).Request(ctx, req.(*RequestMsg))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Ping_Reply_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReplyMsg)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PingServer).Reply(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/ping.Ping/Reply",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PingServer).Reply(ctx, req.(*ReplyMsg))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -94,8 +126,12 @@ var Ping_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*PingServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "RequestAccessToFile",
-			Handler:    _Ping_RequestAccessToFile_Handler,
+			MethodName: "Request",
+			Handler:    _Ping_Request_Handler,
+		},
+		{
+			MethodName: "Reply",
+			Handler:    _Ping_Reply_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -32,7 +32,8 @@ func main() {
 		ctx:           ctx,
 		state:         RELEASED,
 		lamportTime:   0,
-		replyQueue:    make([]int, 0),
+		replyQueue:    make([]int32, 0),
+		replies:       1,
 	}
 
 	// Create listener tcp on port ownPort
@@ -68,13 +69,15 @@ func main() {
 		p.clients[port] = c
 	}
 
+	time.Sleep(time.Second * 2)
+
 	for true {
 		if DecideToAccessFile() {
 			fmt.Printf("I want to access the file: %v (lamport: %v)\n", ownPort, p.lamportTime)
-			p.RequestAccess()
-			if (p.state == HELD) {
-				p.AccessToFile()
-			}	
+			p.RequestAcces()
+			for p.state == WANTED {
+
+			}
 		} else {
 			fmt.Printf("I dont want to access the file: %v (lamport: %v)\n", ownPort, p.lamportTime)
 			time.Sleep(time.Second * 10)
@@ -98,27 +101,9 @@ type Peer struct {
 	ctx           context.Context
 	state         State
 	lamportTime   int
-	replyQueue    []int
+	replyQueue    []int32
+	replies       int
 }
-
-// func (p *peer) Ping(ctx context.Context, req *ping.Request) (*ping.Reply, error) {
-// 	id := req.Id
-// 	p.amountOfPings[id] += 1
-
-// 	rep := &ping.Reply{Amount: p.amountOfPings[id]}
-// 	return rep, nil
-// }
-
-// func (p *peer) SendPingToAll() {
-// 	request := &ping.Request{Id: p.id}
-// 	for id, client := range p.clients {
-// 		reply, err := client.Ping(p.ctx, request)
-// 		if err != nil {
-// 			fmt.Println("something went wrong")
-// 		}
-// 		fmt.Printf("Got reply from id %v: %v\n", id, reply.Amount)
-// 	}
-// }
 
 func DecideToAccessFile() bool {
 	// randomNumber := GenerateRandomNumber(1,3)
@@ -128,44 +113,48 @@ func DecideToAccessFile() bool {
 	return false
 }
 
-func (p *Peer) RequestAccess() {
+func (p *Peer) RequestAcces() { 
 	p.state = WANTED
-	request := &ping.Request{ProcessId: p.id, LamportTime: int32(p.lamportTime)}
-	replies := 1
+	p.LamportTick()
+	request := &ping.RequestMsg{ProcessId: p.id, LamportTime: int32(p.lamportTime)}
 	for id, client := range p.clients {
-		fmt.Printf("Request acces from %v (lamport: %v)\n", id, p.lamportTime)
-		p.lamportTime++
-		reply, err := client.RequestAccessToFile(p.ctx, request)
-		p.OnLamportRecieved(int(reply.LamportTime))
+		fmt.Printf("Sending Request Message To %v\n", id)
+		_, err := client.Request(p.ctx, request)
 		if err != nil {
 			fmt.Println("something went wrong")
 		}
-		fmt.Printf("Got Reply from %v (lamport: %v) \n", id, p.lamportTime)
-		replies++
-
-		if(replies == len(p.clients)) {
-			fmt.Printf("Holding access to file %v (lamport: %v)\n", p.id, p.lamportTime)
-			p.state = HELD
-			break
-		}
 	}
 }
 
-func (p *Peer) RequestAccessToFile(ctx context.Context, req *ping.Request) (*ping.Reply, error) {
-	fmt.Printf("%v p.lamport: %v, %v req.lamport: %v\n", p.id, p.lamportTime, req.ProcessId, req.LamportTime)
+func (p *Peer) Request(ctx context.Context, req *ping.RequestMsg) (*ping.RequestRecievedMsg, error) {
+	fmt.Printf("Recieved Request Message from %v\n", req.ProcessId)
 	if(p.state == HELD || (p.state == WANTED && p.CompareRequest(req))) {
-		p.replyQueue = append(p.replyQueue, int(req.ProcessId))
-		for p.state == HELD {}
+		fmt.Printf("Waited with responing to request from %v\n", req.ProcessId)
+		p.OnLamportRecieved(int(req.LamportTime))
+		p.replyQueue = append(p.replyQueue, req.ProcessId)
+	} else {
+		fmt.Printf("Responed to request Message from %v\n", req.ProcessId)
+		p.OnLamportRecieved(int(req.LamportTime))
+		reply := &ping.ReplyMsg{ProcessId: p.id, LamportTime: int32(p.lamportTime)}
+		p.clients[req.ProcessId].Reply(ctx, reply)
 	}
-	p.OnLamportRecieved(int(req.LamportTime))
-	rep := &ping.Reply{
-		ProcessId: p.id,
-		LamportTime: int32(p.lamportTime),
-	}
-	return rep, nil		
+	rep := &ping.RequestRecievedMsg{ProcessId: p.id, LamportTime: int32(p.lamportTime)}
+	return rep, nil
 }
 
-func (p *Peer) CompareRequest(req *ping.Request) bool {
+func (p *Peer) Reply(ctx context.Context, req *ping.ReplyMsg) (*ping.ReplyRecievedMsg, error) {
+	fmt.Printf("Got a ReplyMsg from %v\n", req.ProcessId)
+	p.replies++
+	if(p.replies == len(p.clients)) {
+		fmt.Printf("Got a Reply from all\n")
+		p.AccessToFile()
+	}
+	rep := &ping.ReplyRecievedMsg{ProcessId: p.id, LamportTime: int32(p.lamportTime)}
+	return rep, nil
+}
+
+
+func (p *Peer) CompareRequest(req *ping.RequestMsg) bool {
 	if(p.lamportTime < int(req.LamportTime)) {
 		return true
 	} else if(p.lamportTime == int(req.LamportTime) && p.id > req.ProcessId) {
@@ -178,12 +167,29 @@ func (p *Peer) OnLamportRecieved(newT int) {
 	p.lamportTime = int(math.Max(float64(p.lamportTime), float64(newT)) + 1)
 }
 
+func (p *Peer) LamportTick() {
+	p.lamportTime += 1
+}
+
 func (p *Peer) AccessToFile() {
 	fmt.Printf("%v: Has acces to file (CRITICAL SECTION) (lamport: %v)\n", p.id, p.lamportTime)
 	p.WriteToFile()
 	time.Sleep(time.Second*time.Duration(GenerateRandomNumber(5, 10)))
 	fmt.Printf("%v: Released acces to file (CRITICAL SECTION END) (lamport: %v)\n", p.id, p.lamportTime)
 	p.state = RELEASED
+	p.replies = 0
+	p.ReplyToAllInQueue()
+}
+
+func (p *Peer) ReplyToAllInQueue() {
+	fmt.Printf("Emptying queued requests %v\n", p.replyQueue)
+	for len(p.replyQueue) != 0 {
+		reply := &ping.ReplyMsg{ProcessId: p.id, LamportTime: int32(p.lamportTime)}
+		replyTo := p.replyQueue[0]
+		fmt.Printf("Replying to %v\n", replyTo)
+		p.clients[replyTo].Reply(p.ctx, reply)
+		p.replyQueue = p.replyQueue[1:]
+	}
 }
 
 func GenerateRandomNumber(min int, max int) int { 
@@ -208,3 +214,22 @@ func (p *Peer) WriteToFile() {
     }
 	}
 }
+
+// func (p *peer) Ping(ctx context.Context, req *ping.Request) (*ping.Reply, error) {
+// 	id := req.Id
+// 	p.amountOfPings[id] += 1
+
+// 	rep := &ping.Reply{Amount: p.amountOfPings[id]}
+// 	return rep, nil
+// }
+
+// func (p *peer) SendPingToAll() {
+// 	request := &ping.Request{Id: p.id}
+// 	for id, client := range p.clients {
+// 		reply, err := client.Ping(p.ctx, request)
+// 		if err != nil {
+// 			fmt.Println("something went wrong")
+// 		}
+// 		fmt.Printf("Got reply from id %v: %v\n", id, reply.Amount)
+// 	}
+// }

@@ -5,15 +5,26 @@ option go_package = ".";
 
 
 service Ping {
-    rpc RequestAccessToFile (Request) returns (Reply) {}
+    rpc Request (RequestMsg) returns (RequestRecievedMsg) {}
+    rpc Reply (ReplyMsg) returns (ReplyRecievedMsg) {}
 }
 
-message Request {
+message RequestMsg {
     int32 processId = 1;
     int32 lamportTime = 2;
 }
 
-message Reply {
+message RequestRecievedMsg {
+    int32 processId = 1;
+    int32 lamportTime = 2;
+}
+
+message ReplyMsg {
+    int32 processId = 1;
+    int32 lamportTime = 2;
+}
+
+message ReplyRecievedMsg {
     int32 processId = 1;
     int32 lamportTime = 2;
 }
