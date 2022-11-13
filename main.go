@@ -170,6 +170,7 @@ func (p *Peer) OnLamportRecieved(newT int) {
 
 func (p *Peer) AccessToFile() {
 	fmt.Printf("%v: Has acces to file (CRITICAL SECTION) (lamport: %v)\n", p.id, p.lamportTime)
+	p.WriteToFile()
 	time.Sleep(time.Second*time.Duration(GenerateRandomNumber(5, 10)))
 	fmt.Printf("%v: Released acces to file (CRITICAL SECTION END) (lamport: %v)\n", p.id, p.lamportTime)
 	p.state = RELEASED
@@ -182,3 +183,18 @@ func GenerateRandomNumber(min int, max int) int {
 
 
 
+func (p *Peer) WriteToFile() { 
+	f, err := os.OpenFile("data.txt",
+	os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+        log.Fatal(err)
+    }
+	for i := 0; i < 10; i++ {
+		var string = fmt.Sprintf("%v wrote to file: %v (timestamp: %v)\n", p.id, i, p.lamportTime)
+		_, err2 := f.WriteString(string)
+
+		if err2 != nil {
+			log.Fatal(err2)
+    }
+	}
+}
