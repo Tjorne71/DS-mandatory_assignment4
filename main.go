@@ -106,8 +106,8 @@ type Peer struct {
 }
 
 func DecideToAccessFile() bool {
-	// randomNumber := GenerateRandomNumber(1,3)
-	if 1 == 1 {
+	randomNumber := GenerateRandomNumber(1,3)
+	if randomNumber == 1 {
 		return true
 	}
 	return false
@@ -143,6 +143,7 @@ func (p *Peer) Request(ctx context.Context, req *ping.RequestMsg) (*ping.Request
 }
 
 func (p *Peer) Reply(ctx context.Context, req *ping.ReplyMsg) (*ping.ReplyRecievedMsg, error) {
+	p.OnLamportRecieved(int(req.LamportTime))
 	fmt.Printf("Got a ReplyMsg from %v\n", req.ProcessId)
 	p.replies++
 	if(p.replies == len(p.clients)) {
